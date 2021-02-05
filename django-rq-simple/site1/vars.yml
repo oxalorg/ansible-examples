@@ -1,0 +1,62 @@
+---
+# Unique Name used for deploying on server
+# It can be anything, but most not conflict with
+# other projects on the same server
+project_name: site1
+
+# Not used anywhere atm
+website: site1.com
+
+app_env_vars:
+  DEBUG: False
+  SECRET_KEY: "1234"
+  MAILGUN_API_KEY: "{{ MAILGUN_API_KEY }}"
+  MAILGUN_API_URL: "{{ MAILGUN_API_URL }}"
+  MAILGUN_SENDER_DOMAIN: transactions.site1.com
+  DEFAULT_FROM_EMAIL: "no-reply@transactions.site1.com"
+  DJANGO_SETTINGS_MODULE: "{{ django_app_name }}.settings"
+  DJANGO_ALLOWED_HOSTS: "{{ website }},www.{{website}}"
+  SENTRY_DSN: "{{ SENTRY_DSN }}"
+  DATABASE_URL: "postgresql://ox:ox@localhost:5432/site1001"
+  SENDGRID_API_KEY: "{{ SENDGRID_API_KEY }}"
+  AWS_ACCESS_KEY_ID: "{{ AWS_ACCESS_KEY_ID }}"
+  AWS_SECRET_ACCESS_KEY: "{{ AWS_SECRET_ACCESS_KEY }}"
+  SMS_OTP_SEND_API: "{{ SMS_OTP_SEND_API }}"
+  SMS_OTP_USERID: "{{ SMS_OTP_USERID }}"
+  SMS_OTP_PASSWORD: "{{ SMS_OTP_PASSWORD }}"
+  SMS_TXN_SEND_API: "{{ SMS_TXN_SEND_API }}"
+  SMS_TXN_USERID: "{{ SMS_TXN_USERID }}"
+  SMS_TXN_PASSWORD: "{{ SMS_TXN_PASSWORD }}"
+  SMS_PRO_SEND_API: "{{ SMS_PRO_SEND_API }}"
+  SMS_PRO_USERID: "{{ SMS_PRO_USERID }}"
+  SMS_PRO_PASSWORD: "{{ SMS_PRO_PASSWORD }}"
+
+gunicorn_vars:
+  bind_addr: "127.0.0.1:3333"
+  num_workers: 3
+
+# Django App Name (folder which contains settings.py file)
+django_app_name: site1
+django_settings_file: "{{ django_app_name }}.settings"
+use_yarn: true
+use_rqworker: False
+use_rqscheduler: False
+
+# Server user account to use
+user_acc: ox
+gunicorn_user: ox
+
+repo_name: site1
+repo_url: git@github.com:oxalorg/{{ repo_name }}.git
+repo_remote: origin
+repo_version: master
+DEPLOY_KEY_PATH: /home/{{ user_acc }}/.ssh/{{ repo_name }}_rsa
+
+root_dir: /srv/{{ user_acc }}/{{ project_name }}
+static_dir: "{{ root_dir }}/static"
+media_dir: "{{ root_dir }}/media"
+conf_dir: "{{ root_dir }}/conf"
+
+virtualenv_root: "{{ root_dir }}/venv"
+virtualenv_python: "{{ virtualenv_root }}/bin/python3"
+virtualenv_pip: "{{ virtualenv_root }}/bin/pip3"

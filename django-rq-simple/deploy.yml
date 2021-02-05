@@ -1,0 +1,166 @@
+---
+- hosts: do
+  become: true
+  # vars_files:
+  #   - SECRETS
+  #   - vars.yml
+
+  tasks:
+    - name: copy priv key to server
+      copy:
+        src: "{{ ansible_conf_dir }}/{{ repo_name }}_rsa"
+        dest: "{{ DEPLOY_KEY_PATH }}"
+        owner: "{{ user_acc }}"
+        group: "{{ user_acc }}"
+        mode: 0700
+
+    - name: copy pub key to server
+      copy:
+        src: "{{ ansible_conf_dir }}/{{ repo_name }}_rsa.pub"
+        dest: "{{ DEPLOY_KEY_PATH }}.pub"
+        owner: "{{ user_acc }}"
+        group: "{{ user_acc }}"
+        mode: 0655
+
+    - name: Clone/pull project repo
+      git:
+        repo: "{{ repo_url }}"
+        version: "{{ repo_version }}"
+        dest: "{{ root_dir }}"
+        accept_hostkey: yes
+        force: yes
+        update: yes
+        depth: 1
+        key_file: "{{ DEPLOY_KEY_PATH }}"
+
+      notify:
+        - app daemon reload
+        - app restart
+        - rqworker daemon reload
+        - rqworker restart
+        - rqscheduler daemon reload
+        - rqscheduler restart
+      tags:
+        - quickdeploy
+
+    - name: update environment file
+      template:
+        src: env.conf.j2
+        dest: "{{ root_dir }}/.env"
+      notify:
+        - app daemon reload
+        - app restart
+        - rqworker daemon reload
+        - rqworker restart
+        - rqscheduler restart
+        - rqscheduler daemon reload
+
+    - name: Make directory tree readable
+      file:
+        path: "{{ root_dir }}"
+        mode: u=rwx,g=rx,o=rx
+        recurse: yes
+        owner: "{{ user_acc }}"
+        group: www-data
+
+    - name: Update app service file
+      template:
+        src: gunicorn.service.j2
+        dest: /etc/systemd/system/{{ project_name }}.service
+      notify:
+        - app daemon reload
+        - app restart
+
+    - name: Update rqworker service file
+      template:
+        src: rqworker.service.j2
+        dest: /etc/systemd/system/{{ project_name }}-rqworker.service
+      notify:
+        - rqworker daemon reload
+        - rqworker restart
+      when: use_rqworker
+
+    - name: Update rqscheduler service file
+      template:
+        src: rqscheduler.service.j2
+        dest: /etc/systemd/system/{{ project_name }}-rqscheduler.service
+      notify:
+        - rqscheduler daemon reload
+        - rqscheduler restart
+      when: use_rqscheduler
+
+    - name: update python packages
+      pip:
+        requirements: "{{ root_dir }}/requirements.txt"
+        virtualenv: "{{ virtualenv_root }}"
+        virtualenv_python: python3
+      become: yes
+      become_user: "{{ user_acc }}"
+      notify: app restart
+
+    - name: yarn install
+      yarn:
+        path: "{{ root_dir }}"
+      when: use_yarn
+
+    - name: yarn building production assets
+      command: /usr/bin/yarn run build
+      args:
+        chdir: "{{ root_dir }}"
+      when: use_yarn
+
+    - name: make sure app server is running
+      systemd: name={{ project_name }} state=started enabled=yes
+
+    - name: make sure rqworker is running
+      systemd: name={{ project_name }}-rqworker state=started enabled=yes
+      when: use_rqworker
+
+    - name: make sure rqscheduler is running
+      systemd: name={{ project_name }}-rqscheduler state=started enabled=yes
+      when: use_rqscheduler
+
+    - name: migrate django
+      become: yes
+      become_user: "{{ user_acc }}"
+      django_manage:
+        command: migrate
+        app_path: "{{ root_dir }}"
+        virtualenv: "{{ virtualenv_root }}"
+        settings: "{{ django_settings_file }}"
+      tags:
+        - quickdeploy
+
+    - name: collectstatic django
+      become: yes
+      become_user: "{{ user_acc }}"
+      django_manage:
+        command: collectstatic
+        app_path: "{{ root_dir }}"
+        virtualenv: "{{ virtualenv_root }}"
+        settings: "{{ django_settings_file }}"
+      tags:
+        - quickdeploy
+
+  handlers:
+    - name: app daemon reload
+      systemd: name={{ project_name }} daemon_reload=yes
+
+    - name: app restart
+      systemd: name={{ project_name }} state=restarted daemon_reload=yes
+
+    - name: rqworker daemon reload
+      systemd: name={{ project_name }}-rqworker daemon_reload=yes
+      when: use_rqworker
+
+    - name: rqworker restart
+      systemd: name={{ project_name }}-rqworker state=restarted daemon_reload=yes
+      when: use_rqworker
+
+    - name: rqscheduler daemon reload
+      systemd: name={{ project_name }}-rqscheduler daemon_reload=yes
+      when: use_rqscheduler
+
+    - name: rqscheduler restart
+      systemd: name={{ project_name }}-rqscheduler state=restarted daemon_reload=yes
+      when: use_rqscheduler

@@ -1,0 +1,1 @@
+ansible-vault edit "$1"/SECRETS --vault-password-file vault.txt

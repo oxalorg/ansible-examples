@@ -1,0 +1,24 @@
+---
+- hosts: do
+  become: true
+
+  tasks:
+    - name: Install packages
+      apt:
+        name: ['python3-pip', 'git', 'redis-server']
+        update-cache: yes
+
+    - name: Install virtualenv
+      pip: name=virtualenv executable=pip3
+
+    - name: Make Root Directory exist
+      file:
+        path: "{{ root_dir }}"
+        mode: u=rwx,g=rx,o=rx
+        recurse: yes
+        owner: "{{ user_acc }}"
+        group: www-data
+        state: directory
+
+#    - name: Remove default nginx template
+#      file: path=/etc/nginx/sites-enabled/default state=absent
