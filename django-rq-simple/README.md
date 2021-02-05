@@ -7,13 +7,19 @@ The ansible scripts are divided into only 2 scripts:
 * deploy.yml to run a new deploy whenver there is a new commit on master
 
 ```
-bash provision.sh site1
-bash deploy.sh site1
+bash bin/provision.sh site1
+bash bin/deploy.sh site1
 ```
 
-## Vault
+## Vault Secrets
 
 Create a ansible-vault password file called `vault.txt` in the root folder. This is common for all sites.
+
+TO edit SECRETS there's a helper script
+
+```
+bash bin/secrets-edit.sh site1
+```
 
 ## Site specific folders
 
